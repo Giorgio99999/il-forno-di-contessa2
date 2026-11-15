@@ -1,0 +1,110 @@
+<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Il Forno di Contessa - Pizzeria RP</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#fff7ed;color:#222}
+header{background:#9a1b1e;color:#fff;padding:18px 16px;text-align:center}header h1{margin:0;font-size:32px}header p{margin:4px 0 0;opacity:.9}
+.top{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;padding:12px}button{border:0;border-radius:999px;padding:10px 16px;cursor:pointer;font-weight:700;background:#9a1b1e;color:#fff}
+button.sec{background:#fff;color:#9a1b1e;border:2px solid #9a1b1e}button.green{background:#15803d}button.gray{background:#e5e7eb;color:#222}
+main{max-width:1100px;margin:0 auto;padding:0 14px 40px}.tabs{display:flex;gap:8px;justify-content:center;margin:6px 0 16px}
+.card{background:#fff;border:1px solid #f0d9c5;border-radius:16px;padding:14px;box-shadow:0 4px 14px rgba(0,0,0,.06)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+.price{font-size:20px;font-weight:900}.badge{background:#dcfce7;color:#166534;padding:3px 8px;border-radius:999px;font-size:12px}
+input,select,textarea{width:100%;padding:10px;border:1px solid #ddd;border-radius:10px;margin:5px 0}
+.row{display:flex;gap:10px;flex-wrap:wrap}.row>div{flex:1;min-width:220px}
+.order{border:2px solid #f0d9c5;border-radius:14px;padding:12px;margin-bottom:10px;background:#fff}
+.totalbox{font-size:34px;font-weight:900;text-align:center;background:#111;color:#fff;padding:16px;border-radius:14px}
+.hidden{display:none}.ownerbar{background:#fef08a;padding:10px;border-radius:10px;text-align:center;font-weight:700;margin-bottom:12px}
+.cart{position:sticky;top:10px}
+</style></head><body>
+<header><h1>🍕 Il Forno di Contessa</h1><p>Pizzeria RP • Forno a legna • Ordini e Cassa</p></header>
+<div class="top"><button onclick="show('cliente')">🍕 Cliente - Menu</button><button class="sec" onclick="show('cassa')">🧾 Cassa / Cucina</button><button class="sec" onclick="openOwner()">🔒 Modifica Menu</button></div>
+<div id="ownerbar" class="ownerbar hidden">✅ Modalità Owner attiva — solo tu puoi modificare il menu <button onclick="logoutOwner()">Esci da Owner</button> <button onclick="changePass()">Cambia Password</button></div>
+
+<main>
+<!-- CLIENTE -->
+<div id="view-cliente">
+<div class="row"><div class="card cart"><h2>🛒 Il tuo ordine</h2><div id="cartList">Carrello vuoto</div><p><b>Totale: <span id="cartTotal">0.00€</span></b></p>
+<input id="nome" placeholder="Nome RP cliente"><select id="tavolo"><option value="Asporto">Asporto</option><option value="Tavolo 1">Tavolo 1</option><option value="Tavolo 2">Tavolo 2</option><option value="Tavolo 3">Tavolo 3</option><option value="Tavolo 4">Tavolo 4</option><option value="Tavolo 5">Tavolo 5</option><option value="Domicilio">Domicilio</option></select>
+<input id="note" placeholder="Note per la cucina (es. senza cipolla)"><button class="green" style="width:100%" onclick="inviaOrdine()">✅ INVIA ORDINE</button><p id="msg" style="color:green;font-weight:700"></p></div>
+<div style="flex:2"><h2>Menu</h2><div id="menuGrid" class="grid"></div><div id="ownerMenuBtn" class="hidden"><button onclick="aggiungiPiatto()">+ Aggiungi Piatto</button></div></div></div>
+</div>
+
+<!-- CASSA -->
+<div id="view-cassa" class="hidden">
+<div class="row"><div class="card"><h2>📊 Oggi</h2><p>Ordini: <b id="statOrdini">0</b> • Incassato: <b id="statIncasso">0.00€</b></p><button class="gray" onclick="chiusura()">Chiusura Cassa / Azzera</button></div>
+<div class="card" style="flex:2"><h2>🧾 Cassa</h2><p>Seleziona un ordine qui sotto, poi scegli pagamento.</p><div id="cassaDettaglio">Nessun ordine selezionato</div>
+<label>Metodo</label><select id="metodo"><option>Contanti</option><option>Carta</option><option>Bancomat RP</option></select>
+<label>Importo ricevuto (solo contanti)</label><input id="ricevuto" type="number" placeholder="Es. 20">
+<div class="totalbox" id="cassaTotale">Totale: 0.00€</div><p style="text-align:center;font-size:20px">Resto da dare: <b id="resto">0.00€</b></p>
+<button class="green" style="width:100%" onclick="chiudiConto()">✅ CHIUDI CONTO / SCONTRINO</button><p id="scontrino"></p></div></div>
+<h2>Ordini in arrivo</h2><div id="ordini"></div>
+</div>
+
+<!-- OWNER LOGIN -->
+<div id="view-owner" class="hidden card" style="max-width:420px;margin:0 auto"><h2>🔒 Area Owner</h2><p>Solo l'owner può modificare il menu.<br>Password iniziale: <b>contessa123</b></p><input id="pass" type="password" placeholder="Password owner"><button style="width:100%" onclick="loginOwner()">Entra</button><p id="passErr" style="color:red"></p><button class="gray" onclick="show('cliente')">Torna al menu</button></div>
+</main>
+<script>
+let menu = JSON.parse(localStorage.getItem('forno_menu')||'null') || [
+{id:1,nome:'Margherita',desc:'Pomodoro, mozzarella, basilico',prezzo:6,cat:'Pizza',esaurito:false},
+{id:2,nome:'Diavola',desc:'Salame piccante, mozzarella',prezzo:8,cat:'Pizza',esaurito:false},
+{id:3,nome:'Quattro Formaggi',desc:'Mozzarella, gorgonzola, parmigiano, fontina',prezzo:9,cat:'Pizza',esaurito:false},
+{id:4,nome:'Capricciosa',desc:'Prosciutto, funghi, carciofi, olive',prezzo:9,cat:'Pizza',esaurito:false},
+{id:5,nome:'Napoletana',desc:'Pomodoro, mozzarella, capperi, acciughe',prezzo:7,cat:'Pizza',esaurito:false},
+{id:6,nome:'Prosciutto e Funghi',desc:'Prosciutto cotto, funghi',prezzo:8.5,cat:'Pizza',esaurito:false},
+{id:7,nome:'Bufalina',desc:'Mozzarella di bufala, pomodorini',prezzo:10,cat:'Pizza',esaurito:false},
+{id:8,nome:'Marinara',desc:'Pomodoro, aglio, origano',prezzo:5.5,cat:'Pizza',esaurito:false},
+{id:9,nome:'Coca Cola',desc:'Lattina 33cl',prezzo:3,cat:'Bibita',esaurito:false},
+{id:10,nome:'Acqua',desc:'Bottiglia 50cl',prezzo:1.5,cat:'Bibita',esaurito:false},
+{id:11,nome:'Tiramisù',desc:'Dolce della casa',prezzo:5,cat:'Dolce',esaurito:false},
+{id:12,nome:'Nutella Pizza',desc:'Pizza dolce con Nutella',prezzo:6,cat:'Dolce',esaurito:false}
+];
+let ordini = JSON.parse(localStorage.getItem('forno_ordini')||'[]');
+let cart = {}; let selected = null; let isOwner = sessionStorage.getItem('forno_owner')==='1';
+function save(){localStorage.setItem('forno_menu',JSON.stringify(menu));localStorage.setItem('forno_ordini',JSON.stringify(ordini));}
+function fmt(n){return n.toFixed(2)+'€'}
+function show(v){document.getElementById('view-cliente').classList.toggle('hidden',v!=='cliente');document.getElementById('view-cassa').classList.toggle('hidden',v!=='cassa');document.getElementById('view-owner').classList.toggle('hidden',v!=='owner');if(v==='cassa')renderOrdini();}
+function renderMenu(){
+ let g=document.getElementById('menuGrid'); g.innerHTML='';
+ menu.forEach(m=>{
+  let q=cart[m.id]||0;
+  g.innerHTML+=`<div class="card"><span class="badge">${m.cat}</span> ${m.esaurito?'<span class="badge" style="background:#fee2e2;color:#991b1b">ESAURITO</span>':''}<h3>${m.nome}</h3><p>${m.desc}</p><p class="price">${fmt(m.prezzo)}</p><p>Quantità: <b>${q}</b></p><button onclick="addCart(${m.id},1)" ${m.esaurito?'disabled':''}>+ Aggiungi</button> <button class="gray" onclick="addCart(${m.id},-1)">-</button>${isOwner?`<br><br><button class="sec" onclick="modifica(${m.id})">✏️ Modifica</button> <button class="gray" onclick="elimina(${m.id})">🗑️ Elimina</button>`:''}</div>`;
+ });
+ document.getElementById('ownerbar').classList.toggle('hidden',!isOwner);
+ document.getElementById('ownerMenuBtn').classList.toggle('hidden',!isOwner);
+ renderCart();
+}
+function renderCart(){let l=document.getElementById('cartList');let tot=0;let html='';for(let id in cart){let m=menu.find(x=>x.id==id);if(!m)continue;tot+=m.prezzo*cart[id];html+=`${m.nome} x${cart[id]} — ${fmt(m.prezzo*cart[id])}<br>`}l.innerHTML=html||'Carrello vuoto';document.getElementById('cartTotal').innerText=fmt(tot);}
+function addCart(id,d){cart[id]=Math.max(0,(cart[id]||0)+d);if(cart[id]===0)delete cart[id];renderMenu();}
+function inviaOrdine(){
+ let items=[];for(let id in cart){let m=menu.find(x=>x.id==id);items.push({nome:m.nome,q:cart[id],prezzo:m.prezzo})}
+ if(!items.length){alert('Carrello vuoto! Aggiungi almeno una pizza.');return}
+ let nome=document.getElementById('nome').value||'Cliente RP';
+ let o={num:ordini.length+1,nome:nome,tavolo:document.getElementById('tavolo').value,note:document.getElementById('note').value,items:items,totale:items.reduce((a,i)=>a+i.prezzo*i.q,0),stato:'In preparazione',pagato:false,ora:new Date().toLocaleTimeString('it-IT')};
+ ordini.unshift(o);cart={};save();renderMenu();document.getElementById('msg').innerText='✅ Ordine #'+o.num+' inviato! Vai in Cassa per vederlo.';setTimeout(()=>document.getElementById('msg').innerText='',4000);
+}
+function renderOrdini(){
+ let c=document.getElementById('ordini');c.innerHTML=ordini.length?'':'Nessun ordine ancora. Fai un ordine dal menu.';
+ ordini.forEach((o,i)=>{c.innerHTML+=`<div class="order"><b>Ordine #${o.num}</b> — ${o.nome} • ${o.tavolo} • ${o.ora} • Stato: <b>${o.stato}</b> ${o.pagato?'• ✅ PAGATO':''}<br>${o.items.map(x=>x.nome+' x'+x.q).join(', ')}<br><b>Totale: ${fmt(o.totale)}</b> ${o.note?'<br>Note: '+o.note:''}<br><br><button onclick="seleziona(${i})">🧾 Apri in Cassa</button> <button class="sec" onclick="cambiaStato(${i})">Stato: ${o.stato} → Avanti</button></div>`});
+ let inc=ordini.filter(x=>x.pagato).reduce((a,x)=>a+x.totale,0);document.getElementById('statOrdini').innerText=ordini.length;document.getElementById('statIncasso').innerText=fmt(inc);
+}
+function cambiaStato(i){let s=['In preparazione','Pronto','Consegnato'];let idx=s.indexOf(ordini[i].stato);ordini[i].stato=s[Math.min(idx+1,2)];save();renderOrdini();}
+function seleziona(i){selected=i;let o=ordini[i];document.getElementById('cassaDettaglio').innerHTML=`<b>Ordine #${o.num}</b> — ${o.nome} — ${o.tavolo}<br>${o.items.map(x=>x.nome+' x'+x.q+' — '+fmt(x.prezzo*x.q)).join('<br>')}`;document.getElementById('cassaTotale').innerText='Totale: '+fmt(o.totale);calcolaResto();}
+function calcolaResto(){if(selected===null)return;let tot=ordini[selected].totale;let ric=parseFloat(document.getElementById('ricevuto').value||0);document.getElementById('resto').innerText=fmt(Math.max(0,ric-tot));}
+document.getElementById('ricevuto').addEventListener('input',calcolaResto);
+function chiudiConto(){
+ if(selected===null){alert('Prima seleziona un ordine in basso con "Apri in Cassa"');return}
+ let o=ordini[selected];let ric=document.getElementById('ricevuto').value||o.totale;let resto=Math.max(0,parseFloat(ric)-o.totale);
+ o.pagato=true;o.stato='Pagato';save();renderOrdini();
+ document.getElementById('scontrino').innerHTML=`<div class="card"><h3>🧾 SCONTRINO - Il Forno di Contessa</h3>Ordine #${o.num} - ${o.nome}<br>${o.items.map(x=>x.nome+' x'+x.q).join('<br>')}<br><b>Totale: ${fmt(o.totale)}</b><br>Pagato con: ${document.getElementById('metodo').value}<br>Ricevuto: ${fmt(parseFloat(ric))}<br><b>Resto: ${fmt(resto)}</b><br>Grazie! ❤️</div>`;
+ document.getElementById('resto').innerText=fmt(resto);selected=null;
+}
+function chiusura(){if(confirm('Vuoi azzerare la cassa di oggi? Gli ordini saranno cancellati.')){ordini=[];selected=null;save();renderOrdini();alert('Cassa chiusa. A domani!')}}
+function openOwner(){if(isOwner){show('cliente');return}show('owner')}
+function loginOwner(){let p=document.getElementById('pass').value;let saved=localStorage.getItem('forno_pass')||'contessa123';if(p===saved){isOwner=true;sessionStorage.setItem('forno_owner','1');show('cliente');renderMenu();}else{document.getElementById('passErr').innerText='Password errata!'} }
+function logoutOwner(){isOwner=false;sessionStorage.removeItem('forno_owner');renderMenu();show('cliente')}
+function changePass(){let vecchia=prompt('Vecchia password:');let saved=localStorage.getItem('forno_pass')||'contessa123';if(vecchia!==saved){alert('Vecchia password sbagliata');return}let nuova=prompt('Nuova password:');if(nuova){localStorage.setItem('forno_pass',nuova);alert('Password cambiata!')}}
+function modifica(id){let m=menu.find(x=>x.id===id);let nome=prompt('Nome:',m.nome);if(!nome)return;let desc=prompt('Descrizione:',m.desc);let prezzo=parseFloat(prompt('Prezzo:',m.prezzo));let cat=prompt('Categoria (Pizza/Bibita/Dolce):',m.cat);m.nome=nome;m.desc=desc||m.desc;m.prezzo=isNaN(prezzo)?m.prezzo:prezzo;m.cat=cat||m.cat;m.esaurito=confirm('Mettere ESAURITO? OK = Si, Annulla = No');save();renderMenu();}
+function elimina(id){if(confirm('Eliminare questo piatto?')){menu=menu.filter(x=>x.id!==id);save();renderMenu();}}
+function aggiungiPiatto(){let nome=prompt('Nome nuovo piatto:');if(!nome)return;let desc=prompt('Descrizione:')||'';let prezzo=parseFloat(prompt('Prezzo:')||'0');let cat=prompt('Categoria (Pizza/Bibita/Dolce):')||'Pizza';menu.push({id:Date.now(),nome:nome,desc:desc,prezzo:prezzo,cat:cat,esaurito:false});save();renderMenu();}
+renderMenu();
+</script></body></html>
